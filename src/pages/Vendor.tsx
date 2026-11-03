@@ -341,9 +341,8 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
       </nav>
 
      <main className="mx-auto p-4 pb-20 max-w-md md:max-w-6xl">
-                {tab === 'vender' && (
+                        {tab === 'vender' && (
           <div className="flex flex-col md:flex-row gap-4">
-            {/* Columna izquierda - Loterías y fecha */}
             <div className="md:w-1/3 space-y-4">
               <Card>
                 <CardContent className="p-3">
@@ -351,7 +350,6 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
                   <Input type="date" value={fechaSorteo} onChange={e => setFechaSorteo(e.target.value)} className="mt-1" />
                 </CardContent>
               </Card>
-
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm text-[#12355b]">Seleccionar loterías ({selLotes.length} seleccionadas)</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
@@ -364,8 +362,6 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
                 </CardContent>
               </Card>
             </div>
-
-            {/* Columna derecha - Jugada y preview */}
             <div className="md:w-2/3 space-y-4">
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm text-[#12355b]">Nueva jugada</CardTitle></CardHeader>
@@ -373,51 +369,20 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
                   <div className="flex gap-3">
                     <div className="flex-1">
                       <label className="text-xs font-semibold text-gray-600">Número (2=terminal, 3=triple)</label>
-                      <Input
-                        ref={numRef}
-                        inputMode="numeric"
-                        maxLength={3}
-                        value={numero}
-                        onChange={e => handleNumeroChange(e.target.value)}
-                        onKeyDown={handleNumeroKeyDown}
-                        placeholder="Ej: 21 o 721"
-                        className="text-center font-bold text-lg tracking-widest"
-                      />
-                      {numero && (
-                        <p className="text-[10px] text-gray-500 mt-0.5">
-                          {detectarTipo(numero) ? NOMJ[detectarTipo(numero)!] : 'Ingresa 2 o 3 cifras'}
-                        </p>
-                      )}
+                      <Input ref={numRef} inputMode="numeric" maxLength={3} value={numero} onChange={e => handleNumeroChange(e.target.value)} onKeyDown={handleNumeroKeyDown} placeholder="Ej: 21 o 721" className="text-center font-bold text-lg tracking-widest" />
+                      {numero && <p className="text-[10px] text-gray-500 mt-0.5">{detectarTipo(numero) ? NOMJ[detectarTipo(numero)!] : 'Ingresa 2 o 3 cifras'}</p>}
                     </div>
                     <div className="w-36">
                       <label className="text-xs font-semibold text-gray-600">Monto (COP)</label>
-                      <Input
-                        ref={montoRef}
-                        type="number"
-                        min={0}
-                        step={100}
-                        value={monto}
-                        onChange={e => setMonto(e.target.value)}
-                        onKeyDown={handleMontoKeyDown}
-                        placeholder="Ej: 1000"
-                      />
+                      <Input ref={montoRef} type="number" min={0} step={100} value={monto} onChange={e => setMonto(e.target.value)} onKeyDown={handleMontoKeyDown} placeholder="Ej: 1000" />
                     </div>
                   </div>
-                  <Button
-                    className="w-full bg-[#0e7c4a] hover:bg-[#0b6b3e] text-base py-3"
-                    onClick={procesar}
-                    disabled={!detectarTipo(numero) || !monto || selLotes.length === 0}
-                  >
-                    ➕ Procesar
-                  </Button>
+                  <Button className="w-full bg-[#0e7c4a] hover:bg-[#0b6b3e] text-base py-3" onClick={procesar} disabled={!detectarTipo(numero) || !monto || selLotes.length === 0}>➕ Procesar</Button>
                 </CardContent>
               </Card>
-
               {preview.length > 0 && (
                 <Card className="border-amber-300 bg-amber-50/30">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-[#12355b]">🎫 Previsualización del ticket</CardTitle>
-                  </CardHeader>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm text-[#12355b]">🎫 Previsualización del ticket</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
                     {Object.entries(previewPorLoteria).map(([lid, grupo]) => (
                       <div key={lid} className="bg-white rounded-lg p-3 border">
@@ -433,11 +398,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
                                   <span className="font-bold">{cop(item.monto)}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  {info && (
-                                    <span className={`text-[10px] ${info.pc >= 100 ? 'text-red-600 font-bold' : info.pc >= 80 ? 'text-amber-600' : 'text-green-600'}`}>
-                                      {cop(info.vend)}/{cop(info.tope)}
-                                    </span>
-                                  )}
+                                  {info && <span className={`text-[10px] ${info.pc >= 100 ? 'text-red-600 font-bold' : info.pc >= 80 ? 'text-amber-600' : 'text-green-600'}`}>{cop(info.vend)}/{cop(info.tope)}</span>}
                                   <Button variant="ghost" size="sm" className="text-red-500 h-6 px-1 text-xs" onClick={() => eliminarDePreview(item.id)}>✕</Button>
                                 </div>
                               </div>
@@ -447,138 +408,16 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
                         <p className="text-right text-xs text-gray-500 mt-1">Subtotal: {cop(grupo.total)}</p>
                       </div>
                     ))}
-
                     <div className="flex justify-between items-center pt-2 border-t border-amber-200">
                       <span className="text-sm font-bold">Jugadas: {preview.length}</span>
                       <span className="text-lg font-bold text-[#12355b]">{cop(totalPreview)}</span>
                     </div>
-
-                    <Button className="w-full bg-[#12355b] hover:bg-[#0e2847] text-base py-3" onClick={generarTicket}>
-                      ✅ Generar ticket
-                    </Button>
+                    <Button className="w-full bg-[#12355b] hover:bg-[#0e2847] text-base py-3" onClick={generarTicket}>✅ Generar ticket</Button>
                   </CardContent>
                 </Card>
               )}
-
               {msg && <p className="text-red-600 text-xs bg-red-50 p-3 rounded-lg border border-red-200">{msg}</p>}
             </div>
-          </div>
-        )}
-          <div className="space-y-4">
-            <Card>
-              <CardContent className="p-3">
-                <label className="text-xs font-semibold text-gray-600">Fecha del sorteo</label>
-                <Input type="date" value={fechaSorteo} onChange={e => setFechaSorteo(e.target.value)} className="mt-1" />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-[#12355b]">Seleccionar loterías ({selLotes.length} seleccionadas)</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {loterias.map(l => (
-                  <div key={l.id} className="flex items-center gap-2">
-                    <Checkbox id={l.id} checked={selLotes.includes(l.id)} onCheckedChange={() => toggleLoteria(l.id)} />
-                    <label htmlFor={l.id} className="text-sm cursor-pointer flex-1">{l.nombre}</label>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm text-[#12355b]">Nueva jugada</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="text-xs font-semibold text-gray-600">Número (2=terminal, 3=triple)</label>
-                    <Input
-                      ref={numRef}
-                      inputMode="numeric"
-                      maxLength={3}
-                      value={numero}
-                      onChange={e => handleNumeroChange(e.target.value)}
-                      onKeyDown={handleNumeroKeyDown}
-                      placeholder="Ej: 21 o 721"
-                      className="text-center font-bold text-lg tracking-widest"
-                    />
-                    {numero && (
-                      <p className="text-[10px] text-gray-500 mt-0.5">
-                        {detectarTipo(numero) ? NOMJ[detectarTipo(numero)!] : 'Ingresa 2 o 3 cifras'}
-                      </p>
-                    )}
-                  </div>
-                  <div className="w-36">
-                    <label className="text-xs font-semibold text-gray-600">Monto (COP)</label>
-                    <Input
-                      ref={montoRef}
-                      type="number"
-                      min={0}
-                      step={100}
-                      value={monto}
-                      onChange={e => setMonto(e.target.value)}
-                      onKeyDown={handleMontoKeyDown}
-                      placeholder="Ej: 1000"
-                    />
-                  </div>
-                </div>
-                <Button
-                  className="w-full bg-[#0e7c4a] hover:bg-[#0b6b3e] text-base py-3"
-                  onClick={procesar}
-                  disabled={!detectarTipo(numero) || !monto || selLotes.length === 0}
-                >
-                  ➕ Procesar
-                </Button>
-              </CardContent>
-            </Card>
-
-            {preview.length > 0 && (
-              <Card className="border-amber-300 bg-amber-50/30">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-[#12355b]">🎫 Previsualización del ticket</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {Object.entries(previewPorLoteria).map(([lid, grupo]) => (
-                    <div key={lid} className="bg-white rounded-lg p-3 border">
-                      <p className="text-sm font-bold text-[#12355b] mb-2">{grupo.lotNombre}</p>
-                      <div className="space-y-1.5">
-                        {grupo.items.map(item => {
-                          const info = infoNumero(item.loteriaId, item.modalidad, item.numero);
-                          return (
-                            <div key={item.id} className="flex justify-between items-center text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono font-bold text-base tracking-wider">{item.numero}</span>
-                                <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{NOMJ[item.modalidad]}</span>
-                                <span className="font-bold">{cop(item.monto)}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {info && (
-                                  <span className={`text-[10px] ${info.pc >= 100 ? 'text-red-600 font-bold' : info.pc >= 80 ? 'text-amber-600' : 'text-green-600'}`}>
-                                    {cop(info.vend)}/{cop(info.tope)}
-                                  </span>
-                                )}
-                                <Button variant="ghost" size="sm" className="text-red-500 h-6 px-1 text-xs" onClick={() => eliminarDePreview(item.id)}>✕</Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <p className="text-right text-xs text-gray-500 mt-1">Subtotal: {cop(grupo.total)}</p>
-                    </div>
-                  ))}
-
-                  <div className="flex justify-between items-center pt-2 border-t border-amber-200">
-                    <span className="text-sm font-bold">Jugadas: {preview.length}</span>
-                    <span className="text-lg font-bold text-[#12355b]">{cop(totalPreview)}</span>
-                  </div>
-
-                  <Button className="w-full bg-[#12355b] hover:bg-[#0e2847] text-base py-3" onClick={generarTicket}>
-                    ✅ Generar ticket
-                  </Button>
-                </CardContent>
-              </Card>
-            
-
-                  {msg && <p className="text-red-600 text-xs bg-red-50 p-3 rounded-lg border border-red-200">{msg}</p>}
-                      </div>
           </div>
         )}
 
