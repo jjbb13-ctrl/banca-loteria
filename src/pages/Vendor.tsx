@@ -575,9 +575,10 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
                   </Button>
                 </CardContent>
               </Card>
-            )}
+            
 
-            {msg && <p className="text-red-600 text-xs bg-red-50 p-3 rounded-lg border border-red-200">{msg}</p>}
+                  {msg && <p className="text-red-600 text-xs bg-red-50 p-3 rounded-lg border border-red-200">{msg}</p>}
+                      </div>
           </div>
         )}
 
