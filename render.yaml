@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: banca-loteria
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false  # Configurar en el dashboard de Render
+      - key: APP_ID
+        sync: false
+      - key: APP_SECRET
+        sync: false
+      - key: VITE_APP_ID
+        sync: false
+      - key: VITE_KIMI_AUTH_URL
+        value: https://auth.kimi.com
+      - key: KIMI_AUTH_URL
+        value: https://auth.kimi.com
+      - key: OWNER_UNION_ID
+        sync: false
