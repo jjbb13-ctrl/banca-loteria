@@ -18,6 +18,12 @@ services:
       - key: VITE_APP_ID
         sync: false
       - key: VITE_KIMI_AUTH_URL
+      - key: KIMI_AUTH_URL
+        value: https://auth.kimi.com
+      - key: KIMI_OPEN_URL
+        value: https://open.kimi.com
+      - key: OWNER_UNION_ID
+        sync: false
         value: https://auth.kimi.com
       - key: KIMI_AUTH_URL
         value: https://auth.kimi.com
