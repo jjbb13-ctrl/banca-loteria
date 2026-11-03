@@ -106,24 +106,26 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
 
     const n = limpio.padStart(tipo === 'terminal' ? 2 : 3, '0');
 
-    const duplicados: string[] = [];
-    const nuevos: PreviewItem[] = [];
+       const nuevos: PreviewItem[] = [];
+    const actualizados: { idx: number; nuevoMonto: number }[] = [];
     selLotes.forEach(lid => {
-      const yaExiste = preview.some(p => p.loteriaId === lid && p.modalidad === tipo && p.numero === n);
-      if (yaExiste) {
-        const l = store.loteById(lid);
-        duplicados.push(l?.nombre || lid);
+      const idx = preview.findIndex(p => p.loteriaId === lid && p.modalidad === tipo && p.numero === n);
+      if (idx >= 0) {
+        actualizados.push({ idx, nuevoMonto: preview[idx].monto + m });
       } else {
         nuevos.push({ id: uid(), loteriaId: lid, modalidad: tipo, numero: n, monto: m });
       }
     });
 
-    if (duplicados.length > 0) {
-      setMsg(`Ya existe en previsualización: ${duplicados.join(', ')}`);
-      if (nuevos.length === 0) return;
-    }
+    if (nuevos.length === 0 && actualizados.length === 0) return;
 
-        setPreview(prev => [...prev, ...nuevos]);
+    setPreview(prev => {
+      const copia = [...prev];
+      actualizados.forEach(a => {
+        copia[a.idx] = { ...copia[a.idx], monto: a.nuevoMonto };
+      });
+      return [...copia, ...nuevos];
+    });
     setNumero('');
     // El monto se mantiene para la siguiente jugada
     setTimeout(() => numRef.current?.focus(), 0);
