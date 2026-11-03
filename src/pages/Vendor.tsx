@@ -109,10 +109,11 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
     const duplicados: string[] = [];
     const nuevos: PreviewItem[] = [];
     selLotes.forEach(lid => {
-      const yaExiste = preview.some(p => p.loteriaId === lid && p.modalidad === tipo && p.numero === n);
-      if (yaExiste) {
-        const l = store.loteById(lid);
-        duplicados.push(l?.nombre || lid);
+         selLotes.forEach(lid => {
+      const idx = preview.findIndex(p => p.loteriaId === lid && p.modalidad === tipo && p.numero === n);
+      if (idx >= 0) {
+        // Sumar monto al existente
+        setPreview(prev => prev.map((p, i) => i === idx ? { ...p, monto: p.monto + m } : p));
       } else {
         nuevos.push({ id: uid(), loteriaId: lid, modalidad: tipo, numero: n, monto: m });
       }
