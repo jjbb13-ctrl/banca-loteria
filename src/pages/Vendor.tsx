@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { useStore } from '@/lib/store';
+import { useStore } from '@/store';
 import { Trash2, Plus, CheckSquare, Ticket, LogOut, Printer, X, Calendar as CalendarIcon } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
