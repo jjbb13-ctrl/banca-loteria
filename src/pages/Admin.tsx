@@ -580,72 +580,7 @@ function LoteriasTab({ onChange }: { onChange: () => void }) {
         </CardContent>
       </Card>
 
-      {/* COPIA DE SEGURIDAD */}
-      <Card className="border-amber-200 bg-amber-50">
-        <CardHeader className="pb-2"><CardTitle className="text-sm text-amber-800">💾 Copia de seguridad (sincronizar entre dispositivos)</CardTitle></CardHeader>
-        <CardContent className="flex gap-2 flex-wrap items-end">
-          <div className="flex-1">
-            <p className="text-xs text-amber-700 mb-2">
-              ⚠️ Los datos se guardan solo en este navegador. Para usar en otro celular/PC, exportá el archivo y cargalo en el otro dispositivo.
-            </p>
-            <div className="flex gap-2">
-              <Button className="bg-[#12355b]" onClick={() => {
-                const data = {
-                  config: store.config,
-                  terminales: store.terminales,
-                  vendedores: store.vendedores,
-                  loterias: store.loterias,
-                  sorteos: store.sorteos,
-                  tickets: store.tickets,
-                  estadosCuenta: store.estadosCuenta,
-                  cupos: store.cupos,
-                  logs: store.logs,
-                  contadores: store.contadores,
-                  seed: true
-                };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `banca_backup_${hoy()}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}>📥 Exportar datos</Button>
-              <label className="cursor-pointer">
-                <input type="file" accept=".json" className="hidden" onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = ev => {
-                    try {
-                      const data = JSON.parse(ev.target?.result as string);
-                      if (!data.terminales || !data.loterias) throw new Error('Archivo inválido');
-                      if (!confirm(`¿Reemplazar todos los datos con los del archivo?\n\nTaquillas: ${data.terminales?.length || 0}\nLoterías: ${data.loterias?.length || 0}\nTickets: ${data.tickets?.length || 0}`)) return;
-                      localStorage.setItem('banca_global_config', JSON.stringify(data.config || {}));
-                      localStorage.setItem('banca_global_terminales', JSON.stringify(data.terminales || []));
-                      localStorage.setItem('banca_global_vendedores', JSON.stringify(data.vendedores || []));
-                      localStorage.setItem('banca_global_loterias', JSON.stringify(data.loterias || []));
-                      localStorage.setItem('banca_global_sorteos', JSON.stringify(data.sorteos || []));
-                      localStorage.setItem('banca_global_tickets', JSON.stringify(data.tickets || []));
-                      localStorage.setItem('banca_global_estadosCuenta', JSON.stringify(data.estadosCuenta || []));
-                      localStorage.setItem('banca_global_cupos', JSON.stringify(data.cupos || []));
-                      localStorage.setItem('banca_global_logs', JSON.stringify(data.logs || []));
-                      localStorage.setItem('banca_global_contadores', JSON.stringify(data.contadores || {}));
-                      localStorage.setItem('banca_global_seed', '1');
-                      alert('Datos importados correctamente. La página se recargará.');
-                      window.location.reload();
-                    } catch (err) {
-                      alert('Error al importar: ' + (err as Error).message);
-                    }
-                  };
-                  reader.readAsText(file);
-                }} />
-                <Button variant="outline" className="border-amber-400 text-amber-800">📤 Importar datos</Button>
-              </label>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+     
 
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-sm text-[#12355b]">Registrar lotería</CardTitle></CardHeader>
