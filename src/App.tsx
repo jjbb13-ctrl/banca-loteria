@@ -1,29 +1,44 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router';
 import Login from './pages/Login';
 import Vendor from './pages/Vendor';
 import Admin from './pages/Admin';
 import { store } from './store';
 
-function getUrlMode(): 'login' | 'vendor' | 'admin' {
-  const params = new URLSearchParams(window.location.search);
-  if (params.has('vendor')) return 'vendor';
-  if (params.has('admin')) return 'admin';
-  return 'login';
+function VendorRoute({ taq, onLogout }: { taq: string; onLogout: () => void }) {
+  const saved = sessionStorage.getItem('banca_session');
+  if (!saved || JSON.parse(saved).role !== 'vendor') {
+    return <Navigate to="/taquilla" replace />;
+  }
+  return <Vendor taq={taq} onLogout={onLogout} />;
+}
+
+function AdminRoute({ onLogout }: { onLogout: () => void }) {
+  const saved = sessionStorage.getItem('banca_session');
+  if (!saved || JSON.parse(saved).role !== 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+  return <Admin onLogout={onLogout} />;
 }
 
 export default function App() {
-  const urlMode = getUrlMode();
-  const [view, setView] = useState<'login' | 'vendor' | 'admin'>('login');
+  const navigate = useNavigate();
   const [taq, setTaq] = useState('');
   const [, setTick] = useState(0);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('banca_session');
     if (saved) {
       const s = JSON.parse(saved);
-      if (s.role === 'vendor') { setTaq(s.taq); setView('vendor'); }
-      else if (s.role === 'admin') { setView('admin'); }
+      if (s.role === 'vendor') {
+        setTaq(s.taq);
+        navigate('/panel', { replace: true });
+      } else if (s.role === 'admin') {
+        navigate('/dashboard', { replace: true });
+      }
     }
+    setIsReady(true);
     const unsub = store.startFirebaseSync(() => setTick(t => t + 1));
     return unsub;
   }, []);
@@ -31,21 +46,30 @@ export default function App() {
   const loginVendor = (code: string) => {
     sessionStorage.setItem('banca_session', JSON.stringify({ role: 'vendor', taq: code }));
     setTaq(code);
-    setView('vendor');
+    navigate('/panel', { replace: true });
   };
 
   const loginAdmin = () => {
     sessionStorage.setItem('banca_session', JSON.stringify({ role: 'admin' }));
-    setView('admin');
+    navigate('/dashboard', { replace: true });
   };
 
   const logout = () => {
     sessionStorage.removeItem('banca_session');
     setTaq('');
-    setView('login');
+    navigate('/', { replace: true });
   };
 
-  if (view === 'vendor') return <Vendor taq={taq} onLogout={logout} />;
-  if (view === 'admin') return <Admin onLogout={logout} />;
-  return <Login onVendorLogin={loginVendor} onAdminLogin={loginAdmin} initialMode={urlMode === 'login' ? undefined : urlMode} />;
+  if (!isReady) return null;
+
+  return (
+    <Routes>
+      <Route path="/" element={<Login onVendorLogin={loginVendor} onAdminLogin={loginAdmin} initialMode={undefined} />} />
+      <Route path="/taquilla" element={<Login onVendorLogin={loginVendor} onAdminLogin={loginAdmin} initialMode="vendor" />} />
+      <Route path="/admin" element={<Login onVendorLogin={loginVendor} onAdminLogin={loginAdmin} initialMode="admin" />} />
+      <Route path="/panel" element={<VendorRoute taq={taq} onLogout={logout} />} />
+      <Route path="/dashboard" element={<AdminRoute onLogout={logout} />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
