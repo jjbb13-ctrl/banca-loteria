@@ -269,6 +269,16 @@ class Store {
     this.contadores[terminalId] = actual + 1;
     return this.contadores[terminalId];
   }
+  
+  addTicket(t: Ticket) {
+    this.tickets.push(t);
+    t.jugadas.forEach(j => {
+      const sid = j.loteriaId + '_' + t.fechaSorteo;
+      this.acumularCupo(sid, j.modalidad, j.numero, j.monto);
+    });
+    this.log('venta', 'ticket', t.id, `Ticket #${t.numero} por $${t.total.toLocaleString()}`, t.terminalId);
+    this.save();
+  }
 
   // ── Cupos ─────────────────────────────────────────────────
   getCupo(sorteoId: string, modalidad: Modalidad, numero: string): Cupo {
