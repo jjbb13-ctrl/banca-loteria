@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { store, hoy, cop, NOMJ, uid } from '@/store';
+import { store, hoy, uid } from '@/store';
 import type { Jugada, Ticket } from '@/types';
 
 interface PreviewItem {
@@ -26,7 +26,6 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
     );
   }
 
-  // Bloqueo
   if (terminal.bloqueado) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#f4f6f9] p-4">
@@ -46,16 +45,14 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
   const [msg, setMsg] = useState('');
   const [ticketModal, setTicketModal] = useState<Ticket | null>(null);
   const [ticketCompartir, setTicketCompartir] = useState<any>(null);
-  const [tick, setTick] = useState(0); // fuerza re-render cuando cambia el store
+  const [tick, setTick] = useState(0);
 
-  // Tickets
   const [fechaFiltro, setFechaFiltro] = useState(hoy());
   const [ticketBuscar, setTicketBuscar] = useState('');
   const [ticketEncontrado, setTicketEncontrado] = useState<Ticket | null>(null);
   const [anularMsg, setAnularMsg] = useState('');
   const [anularMotivo, setAnularMotivo] = useState('');
 
-  // Premios
   const [premioNum, setPremioNum] = useState('');
   const [premioTicket, setPremioTicket] = useState<Ticket | null>(null);
   const [premioMsg, setPremioMsg] = useState('');
@@ -72,7 +69,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
 
   const tipoDetectado = detectarTipo(numero);
   const loterias = store.loterias.filter(l => {
-    if (!l.activa && !l.activo) return false;
+    if (!l.activa) return false;
     if (!tipoDetectado) return true;
     if (tipoDetectado === 'terminal' && l.tipo !== 'animalito') return true;
     if (tipoDetectado === 'triple' && l.tipo !== 'animalito') return true;
@@ -88,7 +85,6 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
     return false;
   });
 
-  // Limpiar loterías seleccionadas que no aplican al tipo detectado
   useEffect(() => {
     if (loteriasInvalidas.length > 0) {
       setSelLotes(prev => prev.filter(id => !loteriasInvalidas.includes(id)));
@@ -135,7 +131,6 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
       return [...copia, ...nuevos];
     });
     setNumero('');
-    // El monto se mantiene para la siguiente jugada
     setTimeout(() => numRef.current?.focus(), 0);
   };
 
@@ -145,7 +140,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
 
   const totalPreview = preview.reduce((s, p) => s + p.monto, 0);
 
-const generarTicket = () => {
+  const generarTicket = () => {
     if (preview.length === 0) { setMsg('Agrega al menos una jugada'); return; }
     const ticketId = uid().slice(0, 8).toUpperCase();
     const numTicket = store.siguienteNumero(terminal.id);
@@ -165,9 +160,10 @@ const generarTicket = () => {
       fechaPago: null,
     };
     store.addTicket(t);
-    setTick(t => t + 1);
+    setTick(x => x + 1);
     setPreview([]);
     setNumero('');
+
     const textoTicket = `*${store.config.nombreSistema || 'Banca Lottery'}*
 🎫 Ticket #${numTicket}
 📅 Sorteo: ${fechaSorteo}
@@ -179,24 +175,30 @@ ${preview.map(p => {
 
 💰 *Total: $${totalPreview.toLocaleString()}*`;
 
-const compartirWhatsApp = () => {
-  const url = `https://wa.me/?text=${encodeURIComponent(textoTicket)}`;
-  window.open(url, '_blank');
-};
-
-const compartirTelegram = () => {
-  const url = `https://t.me/share/url?url=${encodeURIComponent('https://rappisistem.lat')}&text=${encodeURIComponent(textoTicket)}`;
-  window.open(url, '_blank');
-};
-
-const copiarTicket = () => {
-  navigator.clipboard.writeText(textoTicket);
-  setMsg('Ticket copiado al portapapeles');
-};
-    setMsg(`Ticket ${ticketId} generado`);
-    setTicketCompartir({ ticketId, numTicket, textoTicket, compartirWhatsApp, compartirTelegram, copiarTicket });
+    setTicketCompartir({ ticketId, numTicket, textoTicket });
+    setMsg(`Ticket #${numTicket} generado`);
     setTimeout(() => setMsg(''), 3000);
   };
+
+  const compartirWhatsApp = () => {
+    if (!ticketCompartir) return;
+    const url = `https://wa.me/?text=${encodeURIComponent(ticketCompartir.textoTicket)}`;
+    window.open(url, '_blank');
+  };
+
+  const compartirTelegram = () => {
+    if (!ticketCompartir) return;
+    const url = `https://t.me/share/url?url=${encodeURIComponent('https://rappisistem.lat')}&text=${encodeURIComponent(ticketCompartir.textoTicket)}`;
+    window.open(url, '_blank');
+  };
+
+  const copiarTicket = () => {
+    if (!ticketCompartir) return;
+    navigator.clipboard.writeText(ticketCompartir.textoTicket);
+    setMsg('Ticket copiado al portapapeles');
+    setTimeout(() => setMsg(''), 3000);
+  };
+
   const imprimirTicket = (ticketId: string) => {
     const t = store.tickets.find(x => x.id === ticketId);
     if (!t) return;
@@ -242,7 +244,7 @@ const copiarTicket = () => {
     setTicketEncontrado(null);
     setAnularMsg('');
     if (!ticketBuscar.trim()) { setAnularMsg('Ingresa un número de ticket'); return; }
-    const t = store.tickets.find(x => x.id.toLowerCase() === ticketBuscar.trim().toLowerCase());
+    const t = store.tickets.find(x => String(x.numero) === ticketBuscar.trim());
     if (!t) { setAnularMsg('Ticket no encontrado'); return; }
     if (t.terminalId !== terminal.id) { setAnularMsg('Este ticket no pertenece a esta taquilla'); return; }
     setTicketEncontrado(t);
@@ -253,7 +255,7 @@ const copiarTicket = () => {
     if (!anularMotivo.trim()) { setAnularMsg('Ingresa un motivo'); return; }
     store.anularTicket(terminal.id, ticketEncontrado.numero, anularMotivo, terminal.codigo);
     setTicketEncontrado({ ...ticketEncontrado, estado: 'anulado', motivoAnulacion: anularMotivo });
-    setTick(t => t + 1);
+    setTick(x => x + 1);
     setAnularMsg('Ticket anulado correctamente');
     setAnularMotivo('');
   };
@@ -262,7 +264,7 @@ const copiarTicket = () => {
     setPremioTicket(null);
     setPremioMsg('');
     if (!premioNum.trim()) { setPremioMsg('Ingresa número de ticket'); return; }
-    const t = store.tickets.find(x => x.id.toLowerCase() === premioNum.trim().toLowerCase());
+    const t = store.tickets.find(x => String(x.numero) === premioNum.trim());
     if (!t) { setPremioMsg('Ticket no encontrado'); return; }
     if (t.terminalId !== terminal.id) { setPremioMsg('Este ticket no pertenece a esta taquilla'); return; }
     if (t.estado === 'anulado') { setPremioMsg('Ticket anulado'); return; }
@@ -273,9 +275,12 @@ const copiarTicket = () => {
     if (!premioTicket) return;
     const monto = +prompt('Monto del premio a pagar:', '') || 0;
     if (monto <= 0) return;
-    store.pagarPremio(premioTicket.id, monto);
-    setPremioTicket({ ...premioTicket, estado: 'pagado', montoPremio: monto, fechaPago: new Date().toISOString() });
-    setPremioMsg(`Premio de $${monto.toLocaleString()} marcado como pagado`);
+    const res = store.pagarPremio(terminal.id, premioTicket.numero, monto, terminal.codigo);
+    setPremioMsg(res.msg);
+    if (res.ok && premioTicket) {
+      setPremioTicket({ ...premioTicket, estado: 'pagado', montoPremio: monto });
+      setTick(x => x + 1);
+    }
   };
 
   return (
@@ -307,7 +312,6 @@ const copiarTicket = () => {
       <main className="mx-auto p-4 pb-20 max-w-md md:max-w-6xl">
         {tab === 'vender' && (
           <div className="flex flex-col md:flex-row gap-4">
-            {/* Columna izquierda - Loterías y fecha */}
             <div className="md:w-1/3 space-y-4">
               <Card>
                 <CardHeader className="pb-2">
@@ -342,7 +346,6 @@ const copiarTicket = () => {
               </Card>
             </div>
 
-            {/* Columna derecha - Jugada y preview */}
             <div className="md:w-2/3 space-y-4">
               <Card>
                 <CardHeader className="pb-2">
@@ -377,7 +380,7 @@ const copiarTicket = () => {
                           <div key={p.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                             <div>
                               <p className="font-medium text-sm">{l?.nombre || p.loteriaId}</p>
-                              <p className="text-xs text-gray-500">{p.numero} <span className="uppercase">{p.modalidad}</span> <span className="font-semibold">${p.monto.toLocaleString()}</span></p>
+                              <p className="text-xs text-gray-500">{p.numero} {p.modalidad.toUpperCase()} ${p.monto.toLocaleString()}</p>
                             </div>
                             <Button variant="ghost" size="sm" onClick={() => eliminarDePreview(p.id)}>
                               🗑️
@@ -386,7 +389,7 @@ const copiarTicket = () => {
                         );
                       })}
                     </div>
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                    <div className="flex justify-between mt-4 pt-3 border-t">
                       <p className="font-semibold text-sm">Jugadas: {preview.length}</p>
                       <p className="font-bold text-lg text-[#1B4B7C]">${totalPreview.toLocaleString()}</p>
                     </div>
@@ -396,6 +399,32 @@ const copiarTicket = () => {
                   </CardContent>
                 </Card>
               )}
+
+              {ticketCompartir && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">✅ Ticket #{ticketCompartir.numTicket} generado</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p className="text-xs text-gray-500">{ticketCompartir.textoTicket.split('\n').slice(0, 4).join('\n')}...</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button variant="outline" size="sm" onClick={compartirWhatsApp} className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
+                        WhatsApp
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={compartirTelegram} className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
+                        Telegram
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={copiarTicket} className="bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100">
+                        Copiar
+                      </Button>
+                    </div>
+                    <Button variant="ghost" size="sm" className="w-full text-gray-400" onClick={() => setTicketCompartir(null)}>
+                      Cerrar
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
               {msg && <p className="text-red-600 text-xs bg-red-50 p-3 rounded border border-red-200">{msg}</p>}
             </div>
           </div>
@@ -425,8 +454,10 @@ const copiarTicket = () => {
                 <CardContent className="pt-4">
                   <div className="flex justify-between mb-2">
                     <div>
-                      <p className="font-semibold text-sm">Ticket #{t.id}</p>
+                      <p className="font-semibold text-sm">Ticket #{t.numero}</p>
                       <p className="text-xs text-gray-500">{new Date(t.fecha).toLocaleString()}</p>
+                      {t.estado === 'anulado' && <span className="text-xs text-red-600 font-bold">ANULADO</span>}
+                      {t.estado === 'pagado' && <span className="text-xs text-blue-600 font-bold">PAGADO</span>}
                     </div>
                     <p className="font-bold text-[#1B4B7C]">${t.total.toLocaleString()}</p>
                   </div>
@@ -462,7 +493,7 @@ const copiarTicket = () => {
                 {anularMsg && <p className={`text-xs p-2 rounded ${anularMsg.includes('correctamente') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{anularMsg}</p>}
                 {ticketEncontrado && (
                   <div className="p-3 bg-gray-50 rounded space-y-2">
-                    <p className="text-sm font-semibold">Ticket #{ticketEncontrado.id}</p>
+                    <p className="text-sm font-semibold">Ticket #{ticketEncontrado.numero}</p>
                     <p className="text-xs text-gray-500">Total: ${ticketEncontrado.total.toLocaleString()} · Estado: {ticketEncontrado.estado}</p>
                     {ticketEncontrado.estado !== 'anulado' && (
                       <>
@@ -518,7 +549,7 @@ const copiarTicket = () => {
                 {premioMsg && <p className={`text-xs p-2 rounded ${premioMsg.includes('pagado') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{premioMsg}</p>}
                 {premioTicket && (
                   <div className="p-3 bg-gray-50 rounded space-y-2">
-                    <p className="text-sm font-semibold">Ticket #{premioTicket.id}</p>
+                    <p className="text-sm font-semibold">Ticket #{premioTicket.numero}</p>
                     <p className="text-xs text-gray-500">Total: ${premioTicket.total.toLocaleString()} · Sorteo: {premioTicket.fechaSorteo}</p>
                     {premioTicket.estado !== 'pagado' ? (
                       <Button size="sm" className="w-full" onClick={marcarPremio}>Marcar como pagado</Button>
