@@ -144,7 +144,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
 
   const totalPreview = preview.reduce((s, p) => s + p.monto, 0);
 
-    const generarTicket = () => {
+const generarTicket = () => {
     if (preview.length === 0) { setMsg('Agrega al menos una jugada'); return; }
     const ticketId = uid().slice(0, 8).toUpperCase();
     const numTicket = store.siguienteNumero(terminal.id);
@@ -170,7 +170,6 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
     setMsg(`Ticket ${ticketId} generado`);
     setTimeout(() => setMsg(''), 3000);
   };
-
   const imprimirTicket = (ticketId: string) => {
     const t = store.tickets.find(x => x.id === ticketId);
     if (!t) return;
