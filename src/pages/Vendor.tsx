@@ -45,6 +45,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
   const [preview, setPreview] = useState<PreviewItem[]>([]);
   const [msg, setMsg] = useState('');
   const [ticketModal, setTicketModal] = useState<Ticket | null>(null);
+  const [ticketCompartir, setTicketCompartir] = useState<any>(null);
   const [tick, setTick] = useState(0); // fuerza re-render cuando cambia el store
 
   // Tickets
@@ -167,7 +168,33 @@ const generarTicket = () => {
     setTick(t => t + 1);
     setPreview([]);
     setNumero('');
+    const textoTicket = `*${store.config.nombreSistema || 'Banca Lottery'}*
+🎫 Ticket #${numTicket}
+📅 Sorteo: ${fechaSorteo}
+🎯 Jugadas:
+${preview.map(p => {
+  const l = store.loteById(p.loteriaId);
+  return `• ${l?.nombre || p.loteriaId} - ${p.modalidad.toUpperCase()} ${p.numero} - $${p.monto.toLocaleString()}`;
+}).join('\n')}
+
+💰 *Total: $${totalPreview.toLocaleString()}*`;
+
+const compartirWhatsApp = () => {
+  const url = `https://wa.me/?text=${encodeURIComponent(textoTicket)}`;
+  window.open(url, '_blank');
+};
+
+const compartirTelegram = () => {
+  const url = `https://t.me/share/url?url=${encodeURIComponent('https://rappisistem.lat')}&text=${encodeURIComponent(textoTicket)}`;
+  window.open(url, '_blank');
+};
+
+const copiarTicket = () => {
+  navigator.clipboard.writeText(textoTicket);
+  setMsg('Ticket copiado al portapapeles');
+};
     setMsg(`Ticket ${ticketId} generado`);
+    setTicketCompartir({ ticketId, numTicket, textoTicket, compartirWhatsApp, compartirTelegram, copiarTicket });
     setTimeout(() => setMsg(''), 3000);
   };
   const imprimirTicket = (ticketId: string) => {
