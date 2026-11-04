@@ -225,7 +225,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
   const anularTicket = () => {
     if (!ticketEncontrado) return;
     if (!anularMotivo.trim()) { setAnularMsg('Ingresa un motivo'); return; }
-    store.anularTicket(ticketEncontrado.id, anularMotivo);
+    store.anularTicket(terminal.id, ticketEncontrado.numero, anularMotivo, terminal.codigo);
     setTicketEncontrado({ ...ticketEncontrado, estado: 'anulado', motivoAnulacion: anularMotivo });
     setTick(t => t + 1);
     setAnularMsg('Ticket anulado correctamente');
