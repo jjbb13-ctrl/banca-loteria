@@ -45,6 +45,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
   const [preview, setPreview] = useState<PreviewItem[]>([]);
   const [msg, setMsg] = useState('');
   const [ticketModal, setTicketModal] = useState<Ticket | null>(null);
+  const [tick, setTick] = useState(0); // fuerza re-render cuando cambia el store
 
   // Tickets
   const [fechaFiltro, setFechaFiltro] = useState(hoy());
@@ -161,6 +162,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
       fechaPago: null,
     };
     store.addTicket(t);
+    setTick(t => t + 1);
     setPreview([]);
     setNumero('');
     setMsg(`Ticket ${ticketId} generado`);
@@ -223,6 +225,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
     if (!anularMotivo.trim()) { setAnularMsg('Ingresa un motivo'); return; }
     store.anularTicket(ticketEncontrado.id, anularMotivo);
     setTicketEncontrado({ ...ticketEncontrado, estado: 'anulado', motivoAnulacion: anularMotivo });
+    setTick(t => t + 1);
     setAnularMsg('Ticket anulado correctamente');
     setAnularMotivo('');
   };
