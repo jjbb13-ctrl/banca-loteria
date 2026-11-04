@@ -70,7 +70,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
 
   const tipoDetectado = detectarTipo(numero);
   const loterias = store.loterias.filter(l => {
-    if (!l.activo) return false;
+    if (!l.activa && !l.activo) return false;
     if (!tipoDetectado) return true;
     if (tipoDetectado === 'terminal' && l.tipo !== 'animalito') return true;
     if (tipoDetectado === 'triple' && l.tipo !== 'animalito') return true;
