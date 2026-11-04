@@ -144,12 +144,14 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
 
   const totalPreview = preview.reduce((s, p) => s + p.monto, 0);
 
-  const generarTicket = () => {
+    const generarTicket = () => {
     if (preview.length === 0) { setMsg('Agrega al menos una jugada'); return; }
     const ticketId = uid().slice(0, 8).toUpperCase();
+    const numTicket = store.siguienteNumero(terminal.id);
     const ahora = new Date();
     const t: Ticket = {
       id: ticketId,
+      numero: numTicket,
       terminalId: terminal.id,
       taquilla: taq,
       jugadas: preview.map(p => ({ ...p, premio: 0 })),
@@ -157,7 +159,7 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
       fecha: ahora.toISOString(),
       fechaSorteo,
       hora: ahora.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
-      estado: 'activo',
+      estado: 'valido',
       montoPremio: 0,
       fechaPago: null,
     };
