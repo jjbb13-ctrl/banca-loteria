@@ -1,55 +1,30 @@
-import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getDatabase, ref, onValue, set, off, type Database } from 'firebase/database';
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, set, get, child, onValue, off } from 'firebase/database';
 
-let app: FirebaseApp | null = null;
-let db: Database | null = null;
+const firebaseConfig = {
+  apiKey: "AIzaSyD4wetc-BG_bNmf6mctGdLBzk-nPpR4wU8",
+  authDomain: "banca-lottery.firebaseapp.com",
+  databaseURL: "https://banca-lottery-default-rtdb.firebaseio.com",
+  projectId: "banca-lottery",
+  storageBucket: "banca-lottery.firebasestorage.app",
+  messagingSenderId: "1059540016631",
+  appId: "1:1059540016631:web:43020a6654f3d8639f22f2",
+  measurementId: "G-9SY3MGN7HG"
+};
 
-export function isFirebaseConfigured(): boolean {
-  return !!localStorage.getItem('banca_firebase_config');
+const app = initializeApp(firebaseConfig);
+export const db = getDatabase(app);
+
+export function setVal(path: string, val: any) {
+  return set(ref(db, path), val);
 }
 
-export function getFirebaseConfig(): object | null {
-  const c = localStorage.getItem('banca_firebase_config');
-  return c ? JSON.parse(c) : null;
+export function getVal(path: string) {
+  return get(child(ref(db), path));
 }
 
-export function saveFirebaseConfig(config: object) {
-  localStorage.setItem('banca_firebase_config', JSON.stringify(config));
-}
-
-export function initFirebase(): boolean {
-  if (app) return true;
-  const config = getFirebaseConfig();
-  if (!config) return false;
-  try {
-    app = initializeApp(config);
-    db = getDatabase(app);
-    return true;
-  } catch (e) {
-    console.error('Firebase init error', e);
-    return false;
-  }
-}
-
-export function getDb(): Database | null {
-  if (!db) initFirebase();
-  return db;
-}
-
-export function firebaseRef(path: string) {
-  const d = getDb();
-  return d ? ref(d, 'banca/' + path) : null;
-}
-
-export function firebaseOnValue(path: string, callback: (data: unknown) => void) {
-  const r = firebaseRef(path);
-  if (!r) return () => {};
-  onValue(r, snapshot => callback(snapshot.val()));
-  return () => off(r);
-}
-
-export function firebaseSet(path: string, value: unknown): Promise<void> {
-  const r = firebaseRef(path);
-  if (!r) return Promise.reject('Firebase not configured');
-  return set(r, value);
+export function onVal(path: string, cb: (val: any) => void) {
+  const r = ref(db, path);
+  onValue(r, snap => cb(snap.val()));
+  return () => off(r, 'value');
 }
