@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, get, child, onValue, off } from 'firebase/database';
+import { getDatabase, ref, onValue, set, off } from 'firebase/database';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD4wetc-BG_bNmf6mctGdLBzk-nPpR4wU8",
@@ -13,18 +13,22 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getDatabase(app);
+const db = getDatabase(app);
 
-export function setVal(path: string, val: any) {
-  return set(ref(db, path), val);
+// Funciones que usa store.ts
+export function isFirebaseConfigured() { return true; }
+export function initFirebase() { /* ya inicializado */ }
+
+export function firebaseRef(path: string) {
+  return ref(db, 'banca/' + path);
 }
 
-export function getVal(path: string) {
-  return get(child(ref(db), path));
+export function firebaseOnValue(path: string, callback: (data: unknown) => void) {
+  const r = firebaseRef(path);
+  onValue(r, snapshot => callback(snapshot.val()));
+  return () => off(r);
 }
 
-export function onVal(path: string, cb: (val: any) => void) {
-  const r = ref(db, path);
-  onValue(r, snap => cb(snap.val()));
-  return () => off(r, 'value');
+export function firebaseSet(path: string, value: unknown): Promise<void> {
+  return set(firebaseRef(path), value);
 }
