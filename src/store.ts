@@ -158,10 +158,11 @@ class Store {
     if (cambio) this.save();
   }
 
-  save() {
+    save() {
     // 1. Guardar inmediatamente en localStorage (UI instantánea)
     this.saveLocalOnly();
     SG('contadores', this.contadores);
+    this.lastLocalTs = Date.now();
     this.syncToFirebase();
 
     // 2. Programar sync al backend con debounce (2 seg)
@@ -212,24 +213,27 @@ class Store {
     });
   }
 
-  startFirebaseSync(cb: () => void) {
+   startFirebaseSync(cb: () => void) {
     if (!isFirebaseConfigured()) return () => {};
     initFirebase();
     return firebaseOnValue('data_global', (remote: any) => {
-      if (remote && remote.ts > (this.lastLocalTs || 0)) {
-        this.config = remote.config ?? this.config;
-        this.terminales = remote.terminales ?? this.terminales;
-        this.vendedores = remote.vendedores ?? this.vendedores;
-        this.loterias = remote.loterias ?? this.loterias;
-        this.sorteos = remote.sorteos ?? this.sorteos;
-        this.tickets = remote.tickets ?? this.tickets;
-        this.estadosCuenta = remote.estadosCuenta ?? this.estadosCuenta;
-        this.cupos = remote.cupos ?? this.cupos;
-        this.logs = remote.logs ?? this.logs;
-        this.contadores = remote.contadores ?? this.contadores;
-        this.saveLocalOnly();
-        cb();
-      }
+      if (!remote) return;
+      // Siempre actualizar desde Firebase (fuente de verdad en la nube)
+      this.config = remote.config ?? this.config;
+      this.terminales = remote.terminales ?? this.terminales;
+      this.vendedores = remote.vendedores ?? this.vendedores;
+      this.loterias = remote.loterias ?? this.loterias;
+      this.sorteos = remote.sorteos ?? this.sorteos;
+      this.tickets = remote.tickets ?? this.tickets;
+      this.estadosCuenta = remote.estadosCuenta ?? this.estadosCuenta;
+      this.cupos = remote.cupos ?? this.cupos;
+      this.logs = remote.logs ?? this.logs;
+      this.contadores = remote.contadores ?? this.contadores;
+      this.lastLocalTs = remote.ts || Date.now();
+      this.saveLocalOnly();
+      // Notificar a TODOS los componentes abiertos
+      window.dispatchEvent(new CustomEvent('banca-sync'));
+      cb();
     });
   }
 
