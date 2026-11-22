@@ -103,7 +103,10 @@ class Store {
         this.vendedores = remote.vendedores ?? this.vendedores;
         this.loterias = remote.loterias ?? this.loterias;
         this.sorteos = remote.sorteos ?? this.sorteos;
-        this.tickets = remote.tickets ?? this.tickets;
+                this.tickets = (remote.tickets ?? this.tickets).map((t) => ({
+          ...t,
+          ts: t.ts || Date.now(),
+        }));
         this.estadosCuenta = remote.estadosCuenta ?? this.estadosCuenta;
         this.cupos = remote.cupos ?? this.cupos;
         this.logs = remote.logs ?? this.logs;
@@ -210,7 +213,10 @@ class Store {
         loterias: this.loterias,
         vendedores: this.vendedores,
         terminales: this.terminales,
-        tickets: this.tickets,
+              this.tickets = (remote.tickets ?? this.tickets).map((t) => ({
+        ...t,
+        ts: t.ts || Date.now(),
+      }));
         sorteos: this.sorteos,
         cupos: this.cupos,
         estadosCuenta: this.estadosCuenta,
