@@ -62,11 +62,11 @@ export default function Admin({ onLogout }: { onLogout: () => void }) {
         {tab === 'vendedores' && <VendedoresTab onChange={force} />}
         {tab === 'terminales' && <TerminalesTab onChange={force} />}
         {tab === 'loterias' && <LoteriasTab onChange={force} />}
-        {tab === 'ventas' && <VentasTab onTicket={setTicketModal} />}
-        {tab === 'premiar' && <PremiarTab onChange={force} />}
-        {tab === 'cuadre' && <CuadreTab />}
-        {tab === 'auditoria' && <AuditoriaTab />}
-        {tab === 'nube' && <NubeTab />}
+        {tab === 'ventas' && <VentasTab key={tick} onTicket={setTicketModal} />}
+        {tab === 'premiar' && <PremiarTab key={tick} onChange={force} />}
+        {tab === 'cuadre' && <CuadreTab key={tick} />}
+        {tab === 'auditoria' && <AuditoriaTab key={tick} />}
+        {tab === 'nube' && <NubeTab key={tick} />}
       </main>
 
       <Dialog open={!!ticketModal} onOpenChange={() => setTicketModal(null)}>
