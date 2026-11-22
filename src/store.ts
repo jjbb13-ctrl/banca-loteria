@@ -43,10 +43,6 @@ const GG = <T>(k: string, d: T): T => {
 };
 const SG = (k: string, v: unknown) => localStorage.setItem('banca_global_' + k, JSON.stringify(v));
 
-// Datos por TAB (solo sesión temporal — actualmente no se usa, todo es global)
-// const G = <T>(k: string, d: T): T => { ... };
-// const S = (k: string, v: unknown) => ...;
-
 // ── STORE ───────────────────────────────────────────────────
 class Store {
   config: Config;
@@ -58,7 +54,7 @@ class Store {
   estadosCuenta: EstadoCuenta[];
   cupos: Cupo[];
   logs: LogAuditoria[];
-  contadores: Record<string, number>; // serial por terminal
+  contadores: Record<string, number>;
 
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
   private syncPending = false;
@@ -81,11 +77,9 @@ class Store {
     if (!hasData) {
       this.seed();
     } else {
-      // MIGRACIÓN: agregar campos nuevos sin perder datos existentes
       this.migrar();
     }
 
-       // Si Firebase está configurado, cargar datos inmediatamente desde la nube
     if (isFirebaseConfigured()) {
       this.loadFromFirebase();
     } else {
@@ -93,7 +87,6 @@ class Store {
     }
   }
 
-  // Cargar datos desde Firebase (nube) al iniciar
   async loadFromFirebase() {
     try {
       const remote = await firebaseGetOnce('data_global') as any;
@@ -103,7 +96,7 @@ class Store {
         this.vendedores = remote.vendedores ?? this.vendedores;
         this.loterias = remote.loterias ?? this.loterias;
         this.sorteos = remote.sorteos ?? this.sorteos;
-                this.tickets = (remote.tickets ?? this.tickets).map((t) => ({
+        this.tickets = (remote.tickets ?? this.tickets).map((t: Ticket) => ({
           ...t,
           ts: t.ts || Date.now(),
         }));
@@ -121,7 +114,6 @@ class Store {
     }
   }
 
-  // Cargar datos del backend (nube) — fuente de verdad
   async loadFromBackend() {
     if (this.isLoading) return;
     this.isLoading = true;
@@ -138,7 +130,6 @@ class Store {
         this.estadosCuenta = data.estadosCuenta;
         this.logs = data.logs;
         this.saveLocalOnly();
-        // Notificar a la UI que hay nuevos datos
         window.dispatchEvent(new CustomEvent('banca-sync'));
       }
     } catch (e) {
@@ -148,62 +139,17 @@ class Store {
     }
   }
 
-  // Guardar solo en localStorage (sin enviar al backend)
-  private saveLocalOnly() {
-    SG('config', this.config);
-    SG('terminales', this.terminales);
-    SG('vendedores', this.vendedores);
-    SG('loterias', this.loterias);
-    SG('sorteos', this.sorteos);
-    SG('tickets', this.tickets);
-    SG('estadosCuenta', this.estadosCuenta);
-    SG('cupos', this.cupos);
-    SG('logs', this.logs);
-    SG('contadores', this.contadores);
-  }
-
-  // MIGRACIÓN DE DATOS: agrega campos nuevos con valores por defecto
-  // NUNCA elimina ni modifica datos existentes del usuario
-  private migrar() {
-    let cambio = false;
-
-    // Migrar terminales: agregar comisiones y cupos si faltan
-    this.terminales.forEach(t => {
-      if (t.comisionLoterias === undefined) { t.comisionLoterias = this.config.comisionDefault; cambio = true; }
-      if (t.comisionAnimalitos === undefined) { t.comisionAnimalitos = this.config.comisionDefault; cambio = true; }
-      if (t.comisionZodiacales === undefined) { t.comisionZodiacales = this.config.comisionDefault; cambio = true; }
-      if (!t.cuposPorLoteria) { t.cuposPorLoteria = {}; cambio = true; }
-    });
-
-    // Migrar loterías: agregar tipo si falta
-    this.loterias.forEach(l => {
-      if (!l.tipo) {
-        // Detectar tipo según pagos activos
-        if (l.pagos.triple > 0 || l.pagos.cuadrupla > 0) l.tipo = 'triple';
-        else if (l.pagos.terminal > 0 && l.pagos.triple === 0) l.tipo = 'animalito';
-        else if (l.pagos.triple_zodiacal > 0 || l.pagos['4_zodiacal'] > 0) l.tipo = 'zodiacal';
-        else l.tipo = 'triple'; // default seguro
-        cambio = true;
-      }
-    });
-
-    if (cambio) this.save();
-  }
-
-    save() {
-    // 1. Guardar inmediatamente en localStorage (UI instantánea)
+  save() {
     this.saveLocalOnly();
     SG('contadores', this.contadores);
     this.lastLocalTs = Date.now();
     this.syncToFirebase();
 
-    // 2. Programar sync al backend con debounce (2 seg)
     this.syncPending = true;
     if (this.syncTimer) clearTimeout(this.syncTimer);
     this.syncTimer = setTimeout(() => this.syncToBackend(), 2000);
   }
 
-  // Enviar datos al backend (nube) — sincronización entre dispositivos
   private async syncToBackend() {
     if (!this.syncPending) return;
     this.syncPending = false;
@@ -213,10 +159,7 @@ class Store {
         loterias: this.loterias,
         vendedores: this.vendedores,
         terminales: this.terminales,
-              this.tickets = (remote.tickets ?? this.tickets).map((t) => ({
-        ...t,
-        ts: t.ts || Date.now(),
-      }));
+        tickets: this.tickets,
         sorteos: this.sorteos,
         cupos: this.cupos,
         estadosCuenta: this.estadosCuenta,
@@ -225,11 +168,10 @@ class Store {
       console.log('Sync OK');
     } catch (e) {
       console.warn('Sync failed, will retry on next save:', e);
-      this.syncPending = true; // Reintentar en próximo save
+      this.syncPending = true;
     }
   }
 
-  // ── Firebase ──────────────────────────────────────────────
   private syncToFirebase() {
     if (!isFirebaseConfigured()) return;
     initFirebase();
@@ -248,25 +190,26 @@ class Store {
     });
   }
 
-   startFirebaseSync(cb: () => void) {
+  startFirebaseSync(cb: () => void) {
     if (!isFirebaseConfigured()) return () => {};
     initFirebase();
     return firebaseOnValue('data_global', (remote: any) => {
       if (!remote) return;
-      // Siempre actualizar desde Firebase (fuente de verdad en la nube)
       this.config = remote.config ?? this.config;
       this.terminales = remote.terminales ?? this.terminales;
       this.vendedores = remote.vendedores ?? this.vendedores;
       this.loterias = remote.loterias ?? this.loterias;
       this.sorteos = remote.sorteos ?? this.sorteos;
-      this.tickets = remote.tickets ?? this.tickets;
+      this.tickets = (remote.tickets ?? this.tickets).map((t: Ticket) => ({
+        ...t,
+        ts: t.ts || Date.now(),
+      }));
       this.estadosCuenta = remote.estadosCuenta ?? this.estadosCuenta;
       this.cupos = remote.cupos ?? this.cupos;
       this.logs = remote.logs ?? this.logs;
       this.contadores = remote.contadores ?? this.contadores;
       this.lastLocalTs = remote.ts || Date.now();
       this.saveLocalOnly();
-      // Notificar a TODOS los componentes abiertos
       window.dispatchEvent(new CustomEvent('banca-sync'));
       cb();
     });
@@ -274,7 +217,6 @@ class Store {
 
   private lastLocalTs = 0;
 
-  // ── Auditoría ─────────────────────────────────────────────
   log(accion: LogAuditoria['accion'], entidad: string, entidadId: string, detalle: string, usuario = 'SISTEMA') {
     const log: LogAuditoria = {
       id: uid(), usuario, accion, entidad, entidadId,
@@ -285,7 +227,6 @@ class Store {
     this.save();
   }
 
-  // ── Terminal helpers ──────────────────────────────────────
   terminalByCod(cod: string): Terminal | undefined {
     return this.terminales.find(t => t.codigo === cod);
   }
@@ -302,24 +243,22 @@ class Store {
     return this.sorteos.find(s => s.id === id);
   }
 
-  // ── Serial de tickets ─────────────────────────────────────
   siguienteNumero(terminalId: string): number {
     const actual = this.contadores[terminalId] || 0;
     this.contadores[terminalId] = actual + 1;
     return this.contadores[terminalId];
   }
-  
+
   addTicket(t: Ticket) {
     this.tickets.push(t);
     t.jugadas.forEach(j => {
       const sid = j.loteriaId + '_' + t.fechaSorteo;
       this.acumularCupo(sid, j.modalidad, j.numero, j.monto);
     });
-    this.log('venta', 'ticket', t.id, `Ticket #${t.numero} por $${t.total.toLocaleString()}`, t.terminalId);
+    this.log('venta', 'ticket', t.id, `Ticket #${t.numero} por ${cop(t.total)}`, t.terminalId);
     this.save();
   }
 
-  // ── Cupos ─────────────────────────────────────────────────
   getCupo(sorteoId: string, modalidad: Modalidad, numero: string): Cupo {
     const id = sorteoId + '_' + modalidad + '_' + numero;
     let c = this.cupos.find(x => x.id === id);
@@ -349,330 +288,179 @@ class Store {
   cupoDisponible(sorteoId: string, modalidad: Modalidad, numero: string, terminalId?: string): number {
     const c = this.getCupo(sorteoId, modalidad, numero);
     let limite = c.limite;
-    // Si el terminal tiene cupo específico para esta lotería, usar el menor
     if (terminalId) {
-      const t = this.terminalById(terminalId);
-      const loteriaId = sorteoId.split('_')[0];
-      if (t && t.cuposPorLoteria[loteriaId] > 0) {
-        limite = Math.min(limite, t.cuposPorLoteria[loteriaId]);
+      const term = this.terminalById(terminalId);
+      if (term?.cuposPorLoteria) {
+        const cl = term.cuposPorLoteria[sorteoId.split('_')[0]];
+        if (cl && cl < limite) limite = cl;
       }
     }
     return Math.max(0, limite - c.acumulado);
   }
 
-  // ── Tickets ───────────────────────────────────────────────
-  ticketsPorTerminal(terminalId: string, fechaDesde?: string, fechaHasta?: string): Ticket[] {
-    let list = this.tickets.filter(t => t.terminalId === terminalId && t.estado !== 'anulado');
-    if (fechaDesde) list = list.filter(t => t.fechaSorteo >= fechaDesde);
-    if (fechaHasta) list = list.filter(t => t.fechaSorteo <= fechaHasta);
-    return list.sort((a, b) => a.numero - b.numero);
-  }
-
-  ticketPorNumero(terminalId: string, numero: number): Ticket | undefined {
-    return this.tickets.find(t => t.terminalId === terminalId && t.numero === numero);
-  }
-
-  // ── Anulación ─────────────────────────────────────────────
-  anularTicket(terminalId: string, numero: number, motivo: string, usuario: string): string {
-    const t = this.tickets.find(x => x.terminalId === terminalId && x.numero === numero);
-    if (!t) return 'Ticket no encontrado';
-    if (t.estado === 'anulado') return 'Ticket ya anulado';
-    if (t.estado === 'pagado') return 'No se puede anular un ticket pagado';
-
-    // Quitar acumulado de cupos
+  anularTicket(terminalId: string, numeroTicket: number, motivo: string, anuladoPor: string) {
+    const t = this.tickets.find(x => x.terminalId === terminalId && x.numero === numeroTicket);
+    if (!t) return { ok: false, msg: 'Ticket no encontrado' };
+    if (t.estado === 'anulado') return { ok: false, msg: 'Ya está anulado' };
+    const limiteMs = (this.config.tiempoLimiteAnulacionMin || 30) * 60 * 1000;
+    if (Date.now() - (t.ts || 0) > limiteMs) return { ok: false, msg: 'Fuera de tiempo límite para anular' };
+    t.estado = 'anulado';
+    t.anuladoTs = Date.now();
+    t.anuladoPor = anuladoPor;
+    t.motivoAnulacion = motivo;
     t.jugadas.forEach(j => {
       const sid = j.loteriaId + '_' + t.fechaSorteo;
       this.quitarCupo(sid, j.modalidad, j.numero, j.monto);
     });
-
-    t.estado = 'anulado';
-    t.anuladoTs = Date.now();
-    t.anuladoPor = usuario;
-    t.motivoAnulacion = motivo;
-    this.log('anulacion', 'ticket', t.id, `Ticket #${t.numero} anulado. Motivo: ${motivo}`, usuario);
+    this.log('anulacion', 'ticket', t.id, `Ticket #${t.numero} anulado: ${motivo}`, anuladoPor);
     this.save();
-    return '';
+    return { ok: true, msg: 'Ticket anulado' };
   }
 
-  // ── Premios ───────────────────────────────────────────────
-  calcularPremio(j: Jugada, res: ResultadoSorteo, lote: Loteria): number {
-    if (!res) return 0;
-    const num = j.numero;
-    let gano = false;
-
-    if (j.modalidad === 'triple' || j.modalidad === 'triple_zodiacal') {
-      gano = res.num.slice(-3) === num.padStart(3, '0');
-    } else if (j.modalidad === 'terminal' || j.modalidad === '2_zodiacal') {
-      gano = res.num.slice(-2) === num.padStart(2, '0');
-    } else if (j.modalidad === 'cuadrupla' || j.modalidad === '4_zodiacal') {
-      gano = res.num === num.padStart(4, '0');
-    }
-
-    if (!gano) return 0;
-    return j.monto * (lote.pagos[j.modalidad] || 1);
+  pagarPremio(terminalId: string, numeroTicket: number, monto: number, pagadoPor: string) {
+    const t = this.tickets.find(x => x.terminalId === terminalId && x.numero === numeroTicket);
+    if (!t) return { ok: false, msg: 'Ticket no encontrado' };
+    if (t.estado !== 'valido') return { ok: false, msg: 'Ticket no válido' };
+    t.estado = 'pagado';
+    t.montoPremio = monto;
+    t.pagadoTs = Date.now();
+    t.pagadoPor = pagadoPor;
+    this.log('pago_premio', 'ticket', t.id, `Premio $${monto} pagado`, pagadoPor);
+    this.save();
+    return { ok: true, msg: 'Premio registrado' };
   }
 
   premioTicket(t: Ticket): number {
-    const sid = t.loteriaId + '_' + t.fechaSorteo;
-    const s = this.sorteoById(sid);
+    if (t.estado === 'anulado') return 0;
+    const s = this.sorteoById(t.sorteoId);
     const lote = this.loteById(t.loteriaId);
     if (!s?.resultado || !lote || t.estado !== 'valido') return 0;
-    const res = s.resultado;
-    let p = 0;
-    t.jugadas.forEach(j => {
-      if (j.loteriaId === t.loteriaId || !j.loteriaId) {
-        p += this.calcularPremio(j, res, lote);
-      }
-    });
-    return p;
+    const num = s.resultado.num;
+    let premio = 0;
+    for (const j of t.jugadas) {
+      const gano = j.modalidad === 'triple' && num.slice(-3) === j.numero
+        || j.modalidad === 'terminal' && num.slice(-2) === j.numero
+        || j.modalidad === 'cuadrupla' && num === j.numero
+        || j.modalidad === 'triple_zodiacal' && num.slice(-3) === j.numero
+        || j.modalidad === '4_zodiacal' && num === j.numero
+        || j.modalidad === '2_zodiacal' && num.slice(-2) === j.numero;
+      if (gano) premio += j.monto * (lote.pagos[j.modalidad] || 1);
+    }
+    return premio;
   }
 
-  pagarPremio(ticketId: string, pagadoPor: string): { ok: boolean; msg: string; monto?: number } {
-    const t = this.tickets.find(x => x.id === ticketId);
-    if (!t) return { ok: false, msg: 'Ticket no encontrado' };
-    if (t.estado === 'anulado') return { ok: false, msg: 'Ticket anulado' };
-    if (t.estado === 'pagado') return { ok: false, msg: 'Ticket ya pagado' };
-
-    const premio = this.premioTicket(t);
-    if (premio <= 0) return { ok: false, msg: 'Ticket no tiene premio' };
-
-    t.estado = 'pagado';
-    t.pagadoTs = Date.now();
-    t.pagadoPor = pagadoPor;
-    t.montoPremio = premio;
-    this.log('pago_premio', 'ticket', t.id, `Premio pagado: ${cop(premio)}`, pagadoPor);
-    this.save();
-    return { ok: true, msg: 'Premio pagado', monto: premio };
-  }
-
-  // ── Cuadre / Estado de Cuenta ─────────────────────────────
-  calcCuadre(terminalId: string, f1: string, f2: string) {
-    const terminal = this.terminalById(terminalId);
-
-    const tickets = this.tickets.filter(t =>
-      t.terminalId === terminalId &&
-      !t.anuladoTs &&
-      t.fechaSorteo >= f1 &&
-      t.fechaSorteo <= f2
-    );
-
-    let ventas = 0;
-    let premios = 0;
-    let comision = 0;
-    const det: { t: Ticket; premio: number }[] = [];
-
-    tickets.forEach(t => {
-      ventas += t.total;
-      const p = this.premioTicket(t);
-      if (p > 0) {
-        premios += p;
-        det.push({ t, premio: p });
-      }
-      // Comisión según tipo de lotería configurada en la terminal
-      t.jugadas.forEach(j => {
-        const lot = this.loteById(j.loteriaId || t.loteriaId);
-        let pct = this.config.comisionDefault;
-        if (terminal) {
-          if (lot?.tipo === 'animalito') pct = terminal.comisionAnimalitos;
-          else if (lot?.tipo === 'zodiacal') pct = terminal.comisionZodiacales;
-          else pct = terminal.comisionLoterias;
-        }
-        comision += j.monto * pct / 100;
-      });
-    });
-
-    // Tickets anulados en el período
-    const anulados = this.tickets.filter(t =>
-      t.terminalId === terminalId &&
-      t.estado === 'anulado' &&
-      t.anuladoTs &&
-      t.fechaSorteo >= f1 &&
-      t.fechaSorteo <= f2
-    );
-
-    const resultado = ventas - premios;
-    const saldoAnt = terminal?.saldo ?? 0;
-    const neto = resultado - comision + saldoAnt;
-
-    return {
-      ventas, premios, comision, resultado, saldoAnt, neto,
-      det, anulados, ticketsCount: tickets.length,
-    };
-  }
-
-  cerrarCaja(terminalId: string, f1: string, f2: string, montoEntregado: number, usuario: string): EstadoCuenta | null {
-    const terminal = this.terminalById(terminalId);
-    if (!terminal) return null;
-
-    const c = this.calcCuadre(terminalId, f1, f2);
-    const ec: EstadoCuenta = {
-      id: uid(),
-      terminalId,
-      vendedorId: terminal.vendedorId,
-      fechaDesde: f1,
-      fechaHasta: f2,
-      totalVendido: c.ventas,
-      totalPremios: c.premios,
-      comision: c.comision,
-      netoEntregar: c.neto,
-      montoEntregado,
-      diferencia: c.neto - montoEntregado,
-      saldoArrastre: c.neto - montoEntregado,
-      estado: 'cerrado',
-      tsCierre: Date.now(),
-      tickets: c.det.map(d => d.t.numero),
-    };
-
-    // Actualizar saldo arrastrado del terminal
-    terminal.saldo = ec.saldoArrastre;
-
-    this.estadosCuenta.push(ec);
-    this.log('cierre_caja', 'estado_cuenta', ec.id,
-      `Cierre ${f1} a ${f2}. Vendido:${cop(c.ventas)} Premios:${cop(c.premios)} Neto:${cop(c.neto)} Entregado:${cop(montoEntregado)} Dif:${cop(ec.diferencia)}`,
-      usuario);
-    this.save();
-    return ec;
-  }
-
-  // ── Monitoreo: números más jugados ────────────────────────
-  numerosMasJugados(loteriaId: string, fecha: string, modalidad?: Modalidad, top = 20) {
-    const map: Record<string, { numero: string; monto: number; jugadas: number; modalidad: Modalidad }> = {};
-
-    this.tickets.forEach(t => {
-      if (t.estado === 'anulado') return;
-      if (t.loteriaId !== loteriaId && !t.jugadas.some(j => j.loteriaId === loteriaId)) return;
-      if (t.fechaSorteo !== fecha) return;
-
-      t.jugadas.forEach(j => {
-        const lid = j.loteriaId || t.loteriaId;
-        if (lid !== loteriaId) return;
-        if (modalidad && j.modalidad !== modalidad) return;
-
-        const key = j.modalidad + '|' + j.numero;
-        if (!map[key]) map[key] = { numero: j.numero, monto: 0, jugadas: 0, modalidad: j.modalidad };
-        map[key].monto += j.monto;
-        map[key].jugadas += 1;
-      });
-    });
-
-    return Object.values(map)
-      .sort((a, b) => b.monto - a.monto)
-      .slice(0, top);
-  }
-
-  // ── Monitoreo: totales por modalidad ──────────────────────
-  totalPorModalidad(loteriaId: string, fecha: string): Record<Modalidad, { ventas: number; jugadas: number }> {
-    const res: Record<string, { ventas: number; jugadas: number }> = {};
-    const mods: Modalidad[] = ['triple', 'cuadrupla', 'terminal', 'triple_zodiacal', '4_zodiacal', '2_zodiacal'];
-    mods.forEach(m => res[m] = { ventas: 0, jugadas: 0 });
-
-    this.tickets.forEach(t => {
-      if (t.estado === 'anulado') return;
-      if (t.fechaSorteo !== fecha) return;
-      t.jugadas.forEach(j => {
-        const lid = j.loteriaId || t.loteriaId;
-        if (lid === loteriaId && res[j.modalidad]) {
-          res[j.modalidad].ventas += j.monto;
-          res[j.modalidad].jugadas += 1;
-        }
-      });
-    });
-
-    return res as Record<Modalidad, { ventas: number; jugadas: number }>;
-  }
-
-  // ── Monitoreo: alertas de cupo ────────────────────────────
-  alertasCupo(loteriaId: string, fecha: string): Cupo[] {
+  alertasCupo(loteriaId: string, fecha: string) {
     const sid = loteriaId + '_' + fecha;
     return this.cupos
       .filter(c => c.sorteoId === sid && (c.alerta80 || c.alerta100))
-      .sort((a, b) => b.acumulado - a.acumulado)
-      .slice(0, 30);
+      .map(c => ({ ...c, nombre: this.loteById(c.loteriaId)?.nombre || '?' }));
   }
 
-  // ── Texto del ticket ──────────────────────────────────────
-  txtTicket(t: Ticket): string {
-    const term = this.terminalById(t.terminalId);
-    const vend = term ? this.vendedorById(term.vendedorId) : undefined;
-    const lote = this.loteById(t.loteriaId);
-    const nom = NOMJ;
+  detalleTerminal(terminalId: string, fechaDesde: string, fechaHasta: string) {
+    const ts = this.tickets.filter(t => t.terminalId === terminalId && t.fechaSorteo >= fechaDesde && t.fechaSorteo <= fechaHasta && t.estado !== 'anulado');
+    const ventas = ts.reduce((s, t) => s + t.total, 0);
+    const premios = ts.reduce((s, t) => s + (t.montoPremio || 0), 0);
+    return { tickets: ts.length, ventas, premios, neto: ventas - premios };
+  }
 
-    let body = '';
-    const porMod: Record<string, Jugada[]> = {};
-    t.jugadas.forEach(j => {
-      (porMod[j.modalidad] ||= []).push(j);
+  ventasPorLoteria(loteriaId: string, fecha: string) {
+    const porMod: Record<string, { monto: number; apuestas: number; det: { t: Ticket; j: Jugada }[] }> = {};
+    this.tickets.forEach(t => {
+      if (t.loteriaId !== loteriaId || t.fechaSorteo !== fecha || t.estado === 'anulado') return;
+      t.jugadas.forEach(j => {
+        (porMod[j.modalidad] ||= { monto: 0, apuestas: 0, det: [] }).monto += j.monto;
+        porMod[j.modalidad].apuestas += 1;
+        porMod[j.modalidad].det.push({ t, j });
+      });
     });
-    Object.entries(porMod).forEach(([mod, jugadas]) => {
-      body += '\n📌 ' + nom[mod] + '\n';
-      body += jugadas.map(j => j.numero + ' — ' + cop(j.monto)).join('\n') + '\n';
-    });
+    return Object.entries(porMod).map(([modalidad, d]) => ({
+      modalidad,
+      monto: d.monto,
+      apuestas: d.apuestas,
+      porNumero: Object.entries(d.det.reduce((a, { j, t }) => {
+        (a[j.numero] ||= []).push({ monto: j.monto, ticket: t.numero });
+        return a;
+      }, {} as Record<string, { monto: number; ticket: number }[]>))
+        .map(([numero, items]) => ({ numero, monto: items.reduce((s, x) => s + x.monto, 0), apuestas: items.length, tickets: items.map(x => x.ticket) }))
+        .sort((a, b) => b.monto - a.monto),
+    }));
+  }
 
+  txtTicket(t: Ticket) {
+    const lot = this.loteById(t.loteriaId);
+    const vend = this.vendedorById(this.terminalById(t.terminalId)?.vendedorId || '');
+    const premio = this.premioTicket(t);
     const estado = t.estado === 'anulado' ? '\n⚠️ ANULADO' : t.estado === 'pagado' ? '\n🏆 PREMIO PAGADO: ' + cop(t.montoPremio || 0) : '';
-
-    return '🎫 *BANCA LOTTERY*\n' +
-      'Ticket #' + t.numero + '\n' +
-      'Terminal: ' + t.terminalId + '\n' +
-      'Vendedor: ' + (vend?.nombre || '-') + '\n' +
-      'Lotería: ' + (lote?.nombre || '?') + '\n' +
-      'Sorteo: ' + t.fechaSorteo + ' · ' + NOMT[t.turno] + '\n' +
-      ahora() + '\n' +
-      '──────────────────' + body +
-      '──────────────────\n' +
-      '*TOTAL: ' + cop(t.total) + '*\n' +
-      'ID: ' + t.id.toUpperCase() + estado + '\n¡Buena suerte! 🍀';
+    return `${this.config.nombreSistema || 'Banca'}\n` +
+      `Ticket #${t.numero}${estado}\n` +
+      `Fecha: ${t.fechaSorteo} · ${NOMT[t.turno]}\n` +
+      `Terminal: ${this.terminalById(t.terminalId)?.codigo}\n` +
+      `Vendedor: ${vend?.nombre || '-'}\n` +
+      `Lotería: ${lot?.nombre || '?'}\n` +
+      t.jugadas.map(j => `  ${j.numero} ${NOMJ[j.modalidad]} $${j.monto.toLocaleString()}`).join('\n') +
+      `\nTotal: ${cop(t.total)}` +
+      (premio > 0 ? `\n🏆 Premio potencial: ${cop(premio)}` : '');
   }
 
-  // ── SEED (datos de prueba) ────────────────────────────────
+  // ── Datos iniciales de demo ───────────────────────────────
   seed() {
     const h = hoy();
-
-    // Vendedores
-    this.vendedores = [
-      { id: 'V1', nombre: 'Carlos Pérez', telefono: '0412-1234567', cedula: 'V-12345678', comisionPct: 10, activo: true, fechaAlta: h, notas: '' },
-      { id: 'V2', nombre: 'María González', telefono: '0414-9876543', cedula: 'V-87654321', comisionPct: 12, activo: true, fechaAlta: h, notas: '' },
-    ];
-
-    // Terminales
+    this.config = { nombreSistema: 'Banca Lottery', minApuesta: 500, maxNumero: 100000, tiempoLimiteAnulacionMin: 30, comisionDefault: 10, alertaCupoPct: 80 };
+    this.vendedores = [{ id: uid(), nombre: 'Juan Pérez', telefono: '04141234567', cedula: 'V12345678', comisionPct: 10, activo: true, fechaAlta: h, notas: '' }];
     this.terminales = [
-      { id: 'T1', codigo: 'TQ-001', nombre: 'Taquilla Principal', ubicacion: 'Local A', vendedorId: 'V1', activo: true, bloqueado: false, motivoBloqueo: '', fondo: 0, saldo: 0, comisionLoterias: 10, comisionAnimalitos: 15, comisionZodiacales: 12, cuposPorLoteria: {}, fechaAlta: h },
-      { id: 'T2', codigo: 'TQ-002', nombre: 'Taquilla Secundaria', ubicacion: 'Local B', vendedorId: 'V2', activo: true, bloqueado: false, motivoBloqueo: '', fondo: 0, saldo: 0, comisionLoterias: 10, comisionAnimalitos: 15, comisionZodiacales: 12, cuposPorLoteria: {}, fechaAlta: h },
+      { id: 'T1', codigo: 'TQ-001', nombre: 'Taquilla Principal', ubicacion: 'Local A', vendedorId: this.vendedores[0].id, activo: true, bloqueado: false, motivoBloqueo: '', saldo: 0, fondo: 0, fechaAlta: h, comisionLoterias: 10, comisionAnimalitos: 15, comisionZodiacales: 12, cuposPorLoteria: {} },
+      { id: 'T2', codigo: 'TQ-002', nombre: 'Taquilla Secundaria', ubicacion: 'Local B', vendedorId: this.vendedores[0].id, activo: true, bloqueado: false, motivoBloqueo: '', saldo: 0, fondo: 0, fechaAlta: h, comisionLoterias: 10, comisionAnimalitos: 15, comisionZodiacales: 12, cuposPorLoteria: {} },
     ];
-
-    // Loterías — divididas en 3 grupos
     this.loterias = [
-      // === TRIPLES (3 cifras + terminales) ===
-      { id: 'tach_a_1pm', nombre: 'Táchira A 1PM', tipo: 'triple', turno: 'manana', hora: '1:00 PM', horaCierre: '12:30 PM', activa: true, pagos: { triple: 600, cuadrupla: 4000, terminal: 70, triple_zodiacal: 0, '4_zodiacal': 0, '2_zodiacal': 0 }, minApuesta: 500, maxNumero: 100000, topesTerminal: {} },
-      { id: 'tach_b_445pm', nombre: 'Táchira B 4:45PM', tipo: 'triple', turno: 'tarde', hora: '4:45 PM', horaCierre: '4:15 PM', activa: true, pagos: { triple: 600, cuadrupla: 4000, terminal: 70, triple_zodiacal: 0, '4_zodiacal': 0, '2_zodiacal': 0 }, minApuesta: 500, maxNumero: 100000, topesTerminal: {} },
-      { id: 'tach_c_10pm', nombre: 'Táchira C 10PM', tipo: 'triple', turno: 'noche', hora: '10:00 PM', horaCierre: '9:30 PM', activa: true, pagos: { triple: 600, cuadrupla: 4000, terminal: 70, triple_zodiacal: 0, '4_zodiacal': 0, '2_zodiacal': 0 }, minApuesta: 500, maxNumero: 100000, topesTerminal: {} },
-      // === ANIMALITOS (solo terminales) ===
-      { id: 'fl_cash_130pm', nombre: 'Florida Cash 1:30PM', tipo: 'animalito', turno: 'manana', hora: '1:30 PM', horaCierre: '1:00 PM', activa: true, pagos: { triple: 0, cuadrupla: 0, terminal: 60, triple_zodiacal: 0, '4_zodiacal': 0, '2_zodiacal': 0 }, minApuesta: 500, maxNumero: 100000, topesTerminal: {} },
-      { id: 'fl_cash_950pm', nombre: 'Florida Cash 9:50PM', tipo: 'animalito', turno: 'noche', hora: '9:50 PM', horaCierre: '9:20 PM', activa: true, pagos: { triple: 0, cuadrupla: 0, terminal: 60, triple_zodiacal: 0, '4_zodiacal': 0, '2_zodiacal': 0 }, minApuesta: 500, maxNumero: 100000, topesTerminal: {} },
-      // === ZODIACALES ===
-      { id: 'zod_a_1pm', nombre: 'Zodiacal A 1PM', tipo: 'zodiacal', turno: 'manana', hora: '1:00 PM', horaCierre: '12:30 PM', activa: true, pagos: { triple: 0, cuadrupla: 0, terminal: 0, triple_zodiacal: 500, '4_zodiacal': 3500, '2_zodiacal': 60 }, minApuesta: 500, maxNumero: 100000, topesTerminal: {} },
-      { id: 'zod_b_10pm', nombre: 'Zodiacal B 10PM', tipo: 'zodiacal', turno: 'noche', hora: '10:00 PM', horaCierre: '9:30 PM', activa: true, pagos: { triple: 0, cuadrupla: 0, terminal: 0, triple_zodiacal: 500, '4_zodiacal': 3500, '2_zodiacal': 60 }, minApuesta: 500, maxNumero: 100000, topesTerminal: {} },
+      { id: 'tach_a_1pm', nombre: 'Táchira A 1PM', tipo: 'triple', turno: 'manana', hora: '1:00 PM', horaCierre: '12:30 PM', minApuesta: 500, maxNumero: 100000, activa: true, pagos: { triple: 500, terminal: 50, cuadrupla: 0, triple_zodiacal: 0, '4_zodiacal': 0, '2_zodiacal': 0 } },
+      { id: 'tach_b_4pm', nombre: 'Táchira B 4PM', tipo: 'triple', turno: 'tarde', hora: '4:00 PM', horaCierre: '3:30 PM', minApuesta: 500, maxNumero: 100000, activa: true, pagos: { triple: 500, terminal: 50, cuadrupla: 0, triple_zodiacal: 0, '4_zodiacal': 0, '2_zodiacal': 0 } },
     ];
-
-    // Tickets de ejemplo
     this.tickets = [
       { id: uid(), terminalId: 'T1', sorteoId: 'tach_a_1pm_' + h, loteriaId: 'tach_a_1pm', fechaSorteo: h, turno: 'manana', jugadas: [{ modalidad: 'triple', numero: '721', monto: 2000, loteriaId: 'tach_a_1pm' }, { modalidad: 'terminal', numero: '21', monto: 3000, loteriaId: 'tach_a_1pm' }], total: 5000, estado: 'valido', numero: 1, ts: Date.now() - 7200000 },
       { id: uid(), terminalId: 'T1', sorteoId: 'tach_a_1pm_' + h, loteriaId: 'tach_a_1pm', fechaSorteo: h, turno: 'manana', jugadas: [{ modalidad: 'terminal', numero: '21', monto: 5000, loteriaId: 'tach_a_1pm' }], total: 5000, estado: 'valido', numero: 2, ts: Date.now() - 3600000 },
       { id: uid(), terminalId: 'T2', sorteoId: 'tach_a_1pm_' + h, loteriaId: 'tach_a_1pm', fechaSorteo: h, turno: 'manana', jugadas: [{ modalidad: 'terminal', numero: '90', monto: 500, loteriaId: 'tach_a_1pm' }, { modalidad: 'triple', numero: '105', monto: 1000, loteriaId: 'tach_a_1pm' }], total: 1500, estado: 'valido', numero: 1, ts: Date.now() - 3000000 },
     ];
-    this.contadores = { T1: 2, T2: 1 };
-
-    // Resultado de ejemplo
     this.sorteos = [
       { id: 'tach_a_1pm_' + h, loteriaId: 'tach_a_1pm', fecha: h, estado: 'premiado', resultado: { num: '8721', tipo: 'cuadrupla', ts: Date.now() - 1800000 } },
     ];
-
-    // Cupos de ejemplo
-    this.cupos = [
-      { id: 'tach_a_1pm_' + h + '_triple_721', sorteoId: 'tach_a_1pm_' + h, loteriaId: 'tach_a_1pm', modalidad: 'triple', numero: '721', limite: 100000, acumulado: 2000, alerta80: false, alerta100: false },
-      { id: 'tach_a_1pm_' + h + '_terminal_21', sorteoId: 'tach_a_1pm_' + h, loteriaId: 'tach_a_1pm', modalidad: 'terminal', numero: '21', limite: 100000, acumulado: 8000, alerta80: false, alerta100: false },
-    ];
-
+    this.estadosCuenta = [];
+    this.cupos = [];
+    this.logs = [];
+    this.contadores = { T1: 3, T2: 1 };
     this.save();
-    localStorage.setItem('banca_global_seed', '1');
+  }
+
+  private migrar() {
+    let cambio = false;
+    this.terminales.forEach(t => {
+      if (t.comisionLoterias === undefined) { t.comisionLoterias = this.config.comisionDefault; cambio = true; }
+      if (t.comisionAnimalitos === undefined) { t.comisionAnimalitos = this.config.comisionDefault; cambio = true; }
+      if (t.comisionZodiacales === undefined) { t.comisionZodiacales = this.config.comisionDefault; cambio = true; }
+      if (!t.cuposPorLoteria) { t.cuposPorLoteria = {}; cambio = true; }
+    });
+    this.loterias.forEach(l => {
+      if (!l.tipo) {
+        if (l.pagos.triple > 0 || l.pagos.cuadrupla > 0) l.tipo = 'triple';
+        else if (l.pagos.terminal > 0 && l.pagos.triple === 0) l.tipo = 'animalito';
+        else if (l.pagos.triple_zodiacal > 0 || l.pagos['4_zodiacal'] > 0) l.tipo = 'zodiacal';
+        else l.tipo = 'triple';
+        cambio = true;
+      }
+    });
+    if (cambio) this.save();
+  }
+
+  private saveLocalOnly() {
+    SG('config', this.config);
+    SG('terminales', this.terminales);
+    SG('vendedores', this.vendedores);
+    SG('loterias', this.loterias);
+    SG('sorteos', this.sorteos);
+    SG('tickets', this.tickets);
+    SG('estadosCuenta', this.estadosCuenta);
+    SG('cupos', this.cupos);
+    SG('logs', this.logs);
+    SG('contadores', this.contadores);
   }
 }
 
