@@ -91,6 +91,13 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
     }
   }, [numero]);
 
+  // Escuchar sincronizacion de Firebase (datos desde otros dispositivos)
+  useEffect(() => {
+    const handler = () => setTick(t => t + 1);
+    window.addEventListener('banca-sync', handler);
+    return () => window.removeEventListener('banca-sync', handler);
+  }, []);
+
   const toggleLoteria = (id: string) => {
     setSelLotes(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
@@ -142,23 +149,34 @@ export default function Vendor({ taq, onLogout }: { taq: string; onLogout: () =>
 
   const generarTicket = () => {
     if (preview.length === 0) { setMsg('Agrega al menos una jugada'); return; }
+
     const ticketId = uid().slice(0, 8).toUpperCase();
     const numTicket = store.siguienteNumero(terminal.id);
     const ahora = new Date();
+
+    // Determinar loteriaId y turno de las jugadas
+    const loteriaId = preview[0]?.loteriaId || '';
+    const lot = store.loteById(loteriaId);
+
     const t: Ticket = {
       id: ticketId,
       numero: numTicket,
       terminalId: terminal.id,
       taquilla: taq,
+      sorteoId: loteriaId + '_' + fechaSorteo,
+      loteriaId,
+      fechaSorteo,
+      turno: lot?.turno || 'manana',
       jugadas: preview.map(p => ({ ...p, premio: 0 })),
       total: totalPreview,
       fecha: ahora.toISOString(),
-      fechaSorteo,
       hora: ahora.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
       estado: 'valido',
       montoPremio: 0,
       fechaPago: null,
+      ts: Date.now(),
     };
+
     store.addTicket(t);
     setTick(x => x + 1);
     setPreview([]);
