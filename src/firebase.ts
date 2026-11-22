@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue, set, off } from 'firebase/database';
+import { getDatabase, ref, onValue, set, off, get, child } from 'firebase/database';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD4wetc-BG_bNmf6mctGdLBzk-nPpR4wU8",
@@ -15,10 +15,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Funciones que usa store.ts
-export function isFirebaseConfigured() { return true; }
-export function initFirebase() { /* ya inicializado */ }
-
 export function firebaseRef(path: string) {
   return ref(db, 'banca/' + path);
 }
@@ -32,3 +28,12 @@ export function firebaseOnValue(path: string, callback: (data: unknown) => void)
 export function firebaseSet(path: string, value: unknown): Promise<void> {
   return set(firebaseRef(path), value);
 }
+
+export async function firebaseGetOnce(path: string): Promise<unknown> {
+  const snapshot = await get(child(ref(db), 'banca/' + path));
+  return snapshot.val();
+}
+
+// Compatibilidad con store.ts
+export function isFirebaseConfigured() { return true; }
+export function initFirebase() { /* ya inicializado */ }

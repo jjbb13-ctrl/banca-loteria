@@ -3,7 +3,7 @@ import type {
   Ticket, Jugada, EstadoCuenta, Cupo, LogAuditoria,
   Turno, Modalidad
 } from './types';
-import { isFirebaseConfigured, firebaseSet, firebaseOnValue, initFirebase } from './firebase';
+import { isFirebaseConfigured, firebaseSet, firebaseOnValue, firebaseGetOnce, initFirebase } from './firebase';
 import * as api from './api-client';
 
 // ── Utilidades ──────────────────────────────────────────────
@@ -85,8 +85,37 @@ class Store {
       this.migrar();
     }
 
-    // Cargar datos del backend al iniciar (para sincronización entre dispositivos)
-    this.loadFromBackend();
+       // Si Firebase está configurado, cargar datos inmediatamente desde la nube
+    if (isFirebaseConfigured()) {
+      this.loadFromFirebase();
+    } else {
+      this.loadFromBackend();
+    }
+  }
+
+  // Cargar datos desde Firebase (nube) al iniciar
+  async loadFromFirebase() {
+    try {
+      const remote = await firebaseGetOnce('data_global') as any;
+      if (remote) {
+        this.config = remote.config ?? this.config;
+        this.terminales = remote.terminales ?? this.terminales;
+        this.vendedores = remote.vendedores ?? this.vendedores;
+        this.loterias = remote.loterias ?? this.loterias;
+        this.sorteos = remote.sorteos ?? this.sorteos;
+        this.tickets = remote.tickets ?? this.tickets;
+        this.estadosCuenta = remote.estadosCuenta ?? this.estadosCuenta;
+        this.cupos = remote.cupos ?? this.cupos;
+        this.logs = remote.logs ?? this.logs;
+        this.contadores = remote.contadores ?? this.contadores;
+        this.lastLocalTs = remote.ts || Date.now();
+        this.saveLocalOnly();
+        window.dispatchEvent(new CustomEvent('banca-sync'));
+        console.log('Datos cargados desde Firebase');
+      }
+    } catch (e) {
+      console.warn('No se pudo cargar desde Firebase:', e);
+    }
   }
 
   // Cargar datos del backend (nube) — fuente de verdad
