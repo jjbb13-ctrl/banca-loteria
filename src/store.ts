@@ -96,10 +96,17 @@ class Store {
         this.vendedores = remote.vendedores ?? this.vendedores;
         this.loterias = remote.loterias ?? this.loterias;
         this.sorteos = remote.sorteos ?? this.sorteos;
-        this.tickets = (remote.tickets ?? this.tickets).map((t: Ticket) => ({
-          ...t,
-          ts: t.ts || Date.now(),
-        }));
+               this.tickets = (remote.tickets ?? this.tickets).map((t: Ticket) => {
+          const loteriaId = t.loteriaId || t.jugadas?.[0]?.loteriaId || '';
+          const lot = this.loteById(loteriaId);
+          return {
+            ...t,
+            loteriaId,
+            sorteoId: t.sorteoId || loteriaId + '_' + (t.fechaSorteo || hoy()),
+            turno: t.turno || lot?.turno || 'manana',
+            ts: t.ts || Date.now(),
+          };
+        });
         this.estadosCuenta = remote.estadosCuenta ?? this.estadosCuenta;
         this.cupos = remote.cupos ?? this.cupos;
         this.logs = remote.logs ?? this.logs;
@@ -200,10 +207,17 @@ class Store {
       this.vendedores = remote.vendedores ?? this.vendedores;
       this.loterias = remote.loterias ?? this.loterias;
       this.sorteos = remote.sorteos ?? this.sorteos;
-      this.tickets = (remote.tickets ?? this.tickets).map((t: Ticket) => ({
-        ...t,
-        ts: t.ts || Date.now(),
-      }));
+             this.tickets = (remote.tickets ?? this.tickets).map((t: Ticket) => {
+          const loteriaId = t.loteriaId || t.jugadas?.[0]?.loteriaId || '';
+          const lot = this.loteById(loteriaId);
+          return {
+            ...t,
+            loteriaId,
+            sorteoId: t.sorteoId || loteriaId + '_' + (t.fechaSorteo || hoy()),
+            turno: t.turno || lot?.turno || 'manana',
+            ts: t.ts || Date.now(),
+          };
+        });
       this.estadosCuenta = remote.estadosCuenta ?? this.estadosCuenta;
       this.cupos = remote.cupos ?? this.cupos;
       this.logs = remote.logs ?? this.logs;
