@@ -74,9 +74,11 @@ class Store {
     this.logs = GG('logs', []);
     this.contadores = GG('contadores', {});
 
-    if (!hasData) {
+       if (!hasData && !isFirebaseConfigured()) {
+      // Solo crear datos de demo si NO hay Firebase (modo offline local)
       this.seed();
-    } else {
+    } else if (hasData) {
+      // MIGRACIÓN: agregar campos nuevos sin perder datos existentes
       this.migrar();
     }
 
