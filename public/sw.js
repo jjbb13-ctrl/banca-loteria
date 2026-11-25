@@ -1,4 +1,4 @@
-const CACHE_NAME = 'banca-lottery-v3';
+const CACHE_NAME = 'banca-lottery-v4';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
